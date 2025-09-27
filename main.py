@@ -8,7 +8,7 @@ from typing import List, Dict
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 
-# Initialize rich console for beautiful printing
+
 console = Console()
 
 TEMPLATE_DIR = 'templates'
