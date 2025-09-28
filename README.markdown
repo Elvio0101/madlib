@@ -65,11 +65,11 @@ To run the MadLib Generator, ensure you have the following:
 ## UI SCREENSHOTS
 
 Below are screenshots of the MadLib Generator's user interface:
-![alt text](image-5.png)
-![alt text](image-6.png)
+![alt text](image.png)
+![alt text](image-1.png)
 ## OUTPUT
-![alt text](image-7.png)
-![alt text](image-8.png)
+![alt text](image-2.png)
+![alt text](image-3.png)
 
 ## CUSTOMIZATION
 
