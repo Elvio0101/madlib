@@ -1,156 +1,122 @@
+
 import os
 import re
+import streamlit as st
 from datetime import datetime
-from typing import List, Dict
 
-# Import rich for better console output.
-# If you don't have it, run: pip install rich
-from rich.console import Console
-from rich.prompt import Prompt, Confirm
+# ======================
+# Directories
+# ======================
+TEMPLATE_DIR = "templates"
+SAVE_DIR = "saved_stories"
 
-
-console = Console()
-
-TEMPLATE_DIR = 'templates'
-SAVE_DIR = 'saved_stories'
-
-
-def select_template() -> str | None:
-    """Display available templates and let the user pick one."""
-    console.print("\n[bold magenta]Available Mad Libs Templates:[/bold magenta]")
-    try:
-        templates = [f for f in os.listdir(TEMPLATE_DIR) if f.endswith('.txt')]
-        if not templates:
-            console.print("[bold red]No templates found in the 'templates' directory.[/bold red]")
-            return None
-
-        for i, template_name in enumerate(templates):
-            display_name = os.path.splitext(template_name)[0].replace('_', ' ').title()
-            console.print(f"  [cyan]{i + 1}[/cyan]. {display_name}")
-        console.print(f"  [cyan]{len(templates) + 1}[/cyan]. Random Template")
-
-        while True:
-            try:
-                choice = int(Prompt.ask("\n[bold yellow]Choose a template number[/bold yellow]", default="1"))
-                if choice == len(templates) + 1:
-                    template_path = os.path.join(TEMPLATE_DIR, random.choice(templates))
-                elif 1 <= choice <= len(templates):
-                    template_path = os.path.join(TEMPLATE_DIR, templates[choice - 1])
-                else:
-                    console.print("[bold red]Invalid choice. Please enter a number from the list.[/bold red]")
-                    continue
-                return template_path
-            except ValueError:
-                console.print("[bold red]Invalid input. Please enter a number.[/bold red]")
-
-    except FileNotFoundError:
-        console.print(f"[bold red]Error: The directory '{TEMPLATE_DIR}' was not found.[/bold red]")
-        return None
-
-
+# ======================
+# Helper Functions
+# ======================
 def load_template(file_path: str) -> str:
-    """Load template text from file."""
-    with open(file_path, 'r') as file:
-        return file.read()
+    with open(file_path, "r") as f:
+        return f.read()
 
+def extract_placeholders(template: str):
+    return list(dict.fromkeys(re.findall(r"<([^>]+)>", template)))
 
-def extract_placeholders(template: str) -> List[str]:
-    """Extract placeholders like <noun>, <verb> from template."""
-    placeholders = re.findall(r'<([^>]+)>', template)
-    return list(dict.fromkeys(placeholders))
-
-
-def validate_input(word: str, placeholder: str) -> bool:
-    """Basic validation for user input."""
-    if not word.strip():
-        return False
-    if placeholder.lower() == 'number':
-        return word.isdigit()
-    if placeholder.lower() == 'verb ending in -ing':
-        return word.lower().endswith('ing')
-    return True
-
-
-def get_user_inputs(placeholders: List[str]) -> Dict[str, str]:
-    """Ask user for inputs for each placeholder."""
-    inputs = {}
-    console.print("\n[bold magenta]Please provide the following words:[/bold magenta]")
-
-    for i, ph in enumerate(placeholders, 1):
-        console.print(f"  ({i}/{len(placeholders)}) Input for [green]{ph}[/green]")
-        while True:
-            user_input = Prompt.ask(f"  Enter a [green]{ph}[/green]").strip()
-
-            if validate_input(user_input, ph):
-                inputs[ph] = user_input
-                break
-            else:
-                console.print(f"[yellow]Invalid input for '{ph}'. Please try again.[/yellow]")
-
-    return inputs
-
-
-def fill_template(template: str, user_inputs: Dict[str, str]) -> str:
-    """Fill template with user inputs."""
-    return re.sub(r'<([^>]+)>', lambda m: f"[bold cyan]{user_inputs[m.group(1)]}[/bold cyan]", template)
-
+def fill_template(template: str, user_inputs: dict):
+    return re.sub(r"<([^>]+)>", lambda m: user_inputs.get(m.group(1), m.group(0)), template)
 
 def save_story(story: str, template_name: str):
-    """Save story to file (without colors)."""
-    plain_story = re.sub(r'\[bold cyan\]|\[/bold cyan\]', '', story)
-    if Confirm.ask("\n[bold yellow]Do you want to save your story?[/bold yellow]", default=False):
-        os.makedirs(SAVE_DIR, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = os.path.splitext(template_name)[0]
-        file_path = os.path.join(SAVE_DIR, f"{base_name}_{timestamp}.txt")
-        with open(file_path, 'w') as file:
-            file.write(plain_story)
-        console.print(f"\n[bold green]Story saved successfully to:[/] [underline]{file_path}[/underline]")
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.splitext(template_name)[0]
+    file_path = os.path.join(SAVE_DIR, f"{base_name}_{timestamp}.txt")
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(story)
+    return file_path
 
+# ======================
+# Page Styling
+# ======================
+st.set_page_config(page_title="MadLib Generator", page_icon="📖", layout="centered")
 
-def play_game(template_path: str = None) -> bool:
-    """Run one round of the game."""
-    if not template_path:
-        template_path = select_template()
-        if not template_path:
-            return False
+st.markdown(
+    """
+    <style>
+    /* General Page */
+    body {
+        background-color: #f9f9f9;
+        font-family: 'Segoe UI', sans-serif;
+        color: #333;
+    }
+    /* Title */
+    .title {
+        text-align: center;
+        font-size: 2.2em;
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+    /* Subtitle */
+    .subtitle {
+        font-size: 1.2em;
+        color: #34495e;
+        margin-bottom: 12px;
+    }
+    /* Inputs */
+    .stTextInput > div > div > input {
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 1em;
+    }
+    /* Story box */
+    .story-box {
+        background-color: #ffffff;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 15px;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
+        font-size: 1.05em;
+        line-height: 1.6;
+    }
+    /* Success message */
+    .stSuccess {
+        font-weight: 500;
+        color: #2c7a7b !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-    try:
-        template = load_template(template_path)
-        placeholders = extract_placeholders(template)
-        if not placeholders:
-            console.print("[yellow]This template has no placeholders.[/yellow]")
-            return False
+# ======================
+# App Title
+# ======================
+st.markdown("<div class='title'>📖 MadLib Generator</div>", unsafe_allow_html=True)
 
-        user_inputs = get_user_inputs(placeholders)
+# ======================
+# Template Selection
+# ======================
+templates = [f for f in os.listdir(TEMPLATE_DIR) if f.endswith(".txt")]
+template_name = st.selectbox("Choose a Template", templates)
+
+if template_name:
+    template_path = os.path.join(TEMPLATE_DIR, template_name)
+    template = load_template(template_path)
+    placeholders = extract_placeholders(template)
+
+    st.markdown("<div class='subtitle'>📝 Fill in the blanks</div>", unsafe_allow_html=True)
+    user_inputs = {}
+    for ph in placeholders:
+        user_inputs[ph] = st.text_input(f"Enter a {ph}")
+
+    if st.button("✨ Generate Story"):
         story = fill_template(template, user_inputs)
+        st.session_state["story"] = story
+        st.session_state["template_name"] = template_name
+        st.markdown("<div class='subtitle'>📖 Your Story</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='story-box'>{story}</div>", unsafe_allow_html=True)
 
-        console.print("\n" + "=" * 50)
-        console.print("[bold magenta]Here's your Mad Libs story![/bold magenta]")
-        console.print("=" * 50 + "\n")
-        console.print(story)
-        console.print("\n" + "=" * 50)
-
-        save_story(story, os.path.basename(template_path))
-
-        return Confirm.ask("\n[bold yellow]Replay with the same template?[/bold yellow]", default=False)
-
-    except Exception as e:
-        console.print(f"[bold red]Error: {e}[/bold red]")
-        return False
-
-
-def main():
-    """Main game loop."""
-    console.print("[bold green]Welcome to the Mad Libs Generator! 🚀[/bold green]")
-    while True:
-        template_path = None
-        while play_game(template_path):
-            pass
-        if not Confirm.ask("\n[bold yellow]Do you want to play again with a new template?[/bold yellow]", default=True):
-            console.print("\n[bold blue]Thanks for playing! Goodbye 👋[/bold blue]")
-            break
-
-
-if __name__ == "__main__":
-    main()
+if "story" in st.session_state:
+    if st.button("💾 Save Story"):
+        file_path = save_story(st.session_state["story"], st.session_state["template_name"])
+        st.success(f"✅ Story saved to: {file_path}")
